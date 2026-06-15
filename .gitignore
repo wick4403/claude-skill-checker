@@ -1,0 +1,12 @@
+# Test / temp files
+response.json
+*.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
