@@ -402,10 +402,10 @@ main{flex:1;min-width:0;}
 .card{background:var(--surface);border:1px solid var(--border);
       border-radius:var(--r);padding:15px;box-shadow:var(--sh);
       display:flex;flex-direction:column;gap:8px;
-      transition:box-shadow .15s,transform .12s;cursor:default;}
+      transition:box-shadow .15s,transform .12s;cursor:pointer;}
 .card:hover{box-shadow:var(--sh-md);transform:translateY(-1px);}
 .card-top{display:flex;align-items:flex-start;gap:10px;}
-.card-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.card-cat-icon{font-size:16px;flex-shrink:0;line-height:1;}
 .card-name{font-size:13.5px;font-weight:600;line-height:1.35;word-break:break-word;}
 .card-desc{font-size:12.5px;color:var(--muted);line-height:1.5;
            display:-webkit-box;-webkit-line-clamp:3;
@@ -426,6 +426,26 @@ main{flex:1;min-width:0;}
   aside{width:100%;position:relative;top:0;}
   .grid{grid-template-columns:1fr;}
 }
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);
+               z-index:200;display:flex;align-items:center;justify-content:center;
+               padding:24px;}
+.modal-overlay.hidden{display:none;}
+.modal{background:var(--surface);border-radius:var(--r);
+       box-shadow:0 20px 60px rgba(0,0,0,.25);
+       max-width:580px;width:100%;max-height:80vh;
+       display:flex;flex-direction:column;overflow:hidden;}
+.modal-header{display:flex;align-items:flex-start;gap:12px;
+              padding:20px 20px 16px;border-bottom:1px solid var(--border);}
+.modal-icon{font-size:22px;flex-shrink:0;line-height:1;}
+.modal-title{flex:1;font-size:16px;font-weight:700;line-height:1.35;}
+.modal-close{background:none;border:none;cursor:pointer;font-size:22px;
+             color:var(--muted);line-height:1;padding:0 2px;flex-shrink:0;}
+.modal-close:hover{color:var(--text);}
+.modal-body{padding:18px 20px 16px;overflow-y:auto;font-size:14px;
+            line-height:1.7;color:var(--muted);white-space:pre-wrap;}
+.modal-footer{padding:0 20px 18px;display:flex;gap:8px;}
 </style>
 </head>
 <body>
@@ -458,6 +478,18 @@ main{flex:1;min-width:0;}
   </main>
 </div>
 
+<div class="modal-overlay hidden" id="modal-overlay" onclick="if(event.target===this)hideModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-icon" id="modal-icon"></div>
+      <div class="modal-title" id="modal-title"></div>
+      <button class="modal-close" onclick="hideModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer"><span class="card-tag" id="modal-tag"></span></div>
+  </div>
+</div>
+
 <script>
 var D = null, activeCat = 'all', q = '';
 var _newSkills = new Set();   // dir_names added since last cache (this session)
@@ -481,6 +513,11 @@ function catColor(id){
   if(!D) return '#78716C';
   var c = D.categories.find(function(c){return c.id===id;});
   return c ? c.color : '#78716C';
+}
+function catIcon(id){
+  if(!D) return '⚡';
+  var c = D.categories.find(function(c){return c.id===id;});
+  return c ? c.icon : '⚡';
 }
 
 function renderSidebar(){
@@ -517,15 +554,55 @@ function filtered(){
   return items;
 }
 
+// ── Modal ──────────────────────────────────────────────────
+function showModal(item, color){
+  document.getElementById('modal-icon').textContent = catIcon(item.category);
+  document.getElementById('modal-title').textContent = item.name || item.dir_name;
+  document.getElementById('modal-body').textContent  = item.description;
+  var tag = document.getElementById('modal-tag');
+  if(item.type === 'agent'){
+    tag.textContent = '🤖 Agent';
+    tag.className   = 'card-tag agent';
+  } else {
+    tag.textContent = '⚡ Skill';
+    tag.className   = 'card-tag';
+  }
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  document.addEventListener('keydown', onModalEsc);
+}
+function hideModal(){
+  document.getElementById('modal-overlay').classList.add('hidden');
+  document.removeEventListener('keydown', onModalEsc);
+}
+function onModalEsc(e){ if(e.key === 'Escape') hideModal(); }
+
+function openCard(dn){
+  if(!D) return;
+  var item = D.items.find(function(i){ return i.dir_name === dn; });
+  if(!item) return;
+  showModal(item, catColor(item.category));
+}
+
+document.addEventListener('click', function(e){
+  var el = e.target;
+  while(el && el !== document){
+    if(el.classList && el.classList.contains('card') && el.dataset && el.dataset.dn){
+      openCard(el.dataset.dn);
+      return;
+    }
+    el = el.parentElement;
+  }
+});
+
 function card(item, color){
   var tag = item.type==='agent'
     ? '<span class="card-tag agent">🤖 Agent</span>'
     : '<span class="card-tag">⚡ Skill</span>';
   var newBadge = _newSkills.has(item.dir_name)
     ? '<span class="card-tag new-badge">Nieuw</span>' : '';
-  return '<div class="card">'
+  return '<div class="card" data-dn="'+esc(item.dir_name)+'">'
     +'<div class="card-top">'
-    +'<div class="card-dot" style="background:'+color+'"></div>'
+    +'<span class="card-cat-icon">'+catIcon(item.category)+'</span>'
     +'<div class="card-name">'+esc(item.name||item.dir_name)+'</div>'
     +'</div>'
     +'<div class="card-desc">'+esc(item.description)+'</div>'
